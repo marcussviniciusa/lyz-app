@@ -1,11 +1,8 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/plans/[id]/edit/page": "app/dashboard/plans/[id]/edit/page.js",
   "/dashboard/plans/[id]/exam-analysis/page": "app/dashboard/plans/[id]/exam-analysis/page.js",
-  "/dashboard/plans/[id]/ifm-matrix/page": "app/dashboard/plans/[id]/ifm-matrix/page.js",
   "/dashboard/plans/[id]/page": "app/dashboard/plans/[id]/page.js",
-  "/dashboard/plans/page": "app/dashboard/plans/page.js",
+  "/dashboard/plans/new/page": "app/dashboard/plans/new/page.js",
   "/page": "app/page.js"
 }

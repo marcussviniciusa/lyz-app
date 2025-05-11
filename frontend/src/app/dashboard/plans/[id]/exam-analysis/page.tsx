@@ -3,8 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Upload, File, X, Image, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Upload, X, Image, FileText, Brain, Maximize2, FileIcon } from 'lucide-react';
 import { planAPI, fileAPI } from '@/lib/api';
+import AIAnalysisAnimation from '@/components/AIAnalysisAnimation';
+import AIAnalysisResult from '@/components/AIAnalysisResult';
+import { generateExamAnalysis } from '@/services/aiAnalysisService';
+import { motion } from 'framer-motion';
+import AdvancedFilePreview from '@/components/AdvancedFilePreview';
 
 export default function ExamAnalysisEditPage() {
   const router = useRouter();
@@ -26,6 +31,18 @@ export default function ExamAnalysisEditPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState<File | null>(null);
+  const [showAdvancedPreview, setShowAdvancedPreview] = useState<boolean>(false);
+  
+  // Estado para análise de IA
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [showAIOption, setShowAIOption] = useState(false);
+  
+  // Estado para controlar se a página já carregou dados do localStorage
+  const [hasLoadedState, setHasLoadedState] = useState(false);
   
   // Referência para o input de arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +63,66 @@ export default function ExamAnalysisEditPage() {
     
     const extractedId = extractPlanIdFromUrl();
     setPlanId(extractedId);
-  }, []);
+    
+    // Só tenta carregar o estado depois de ter o ID do plano
+    if (extractedId && !hasLoadedState) {
+      loadStateFromStorage(extractedId);
+    }
+  }, [hasLoadedState]);
+  
+  // Função para salvar o estado atual no localStorage
+  const saveStateToStorage = (planId: string) => {
+    if (!planId || typeof window === 'undefined') return;
+    
+    try {
+      // Criamos um objeto com todos os estados que queremos persistir
+      const stateToSave = {
+        analysisType,
+        findings,
+        recommendations,
+        uploadedFiles,
+        analysisResult,
+        // Não salvamos os files nem selectedPreviewFile pois são objetos File que não podem ser serializados
+      };
+      
+      localStorage.setItem(`exam-analysis-${planId}`, JSON.stringify(stateToSave));
+    } catch (error) {
+      console.error('Erro ao salvar estado:', error);
+    }
+  };
+  
+  // Função para carregar o estado do localStorage
+  const loadStateFromStorage = (planId: string) => {
+    if (!planId || typeof window === 'undefined') return;
+    
+    try {
+      const savedState = localStorage.getItem(`exam-analysis-${planId}`);
+      
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        
+        // Restaurar cada estado separadamente
+        if (parsedState.analysisType) setAnalysisType(parsedState.analysisType);
+        if (parsedState.findings) setFindings(parsedState.findings);
+        if (parsedState.recommendations) setRecommendations(parsedState.recommendations);
+        if (parsedState.uploadedFiles) setUploadedFiles(parsedState.uploadedFiles);
+        if (parsedState.analysisResult) setAnalysisResult(parsedState.analysisResult);
+      }
+      
+      setHasLoadedState(true);
+    } catch (error) {
+      console.error('Erro ao carregar estado:', error);
+      setHasLoadedState(true); // Marcamos como carregado mesmo em caso de erro
+    }
+  };
+  
+  // Efeito para salvar o estado quando houver mudanças nos dados
+  useEffect(() => {
+    // Só salvamos depois que o estado inicial foi carregado para evitar sobrescrever com valores vazios
+    if (hasLoadedState && planId) {
+      saveStateToStorage(planId);
+    }
+  }, [hasLoadedState, planId, analysisType, findings, recommendations, uploadedFiles, analysisResult]);
   
   // Buscar dados do plano quando o ID estiver disponível
   useEffect(() => {
@@ -156,15 +232,90 @@ export default function ExamAnalysisEditPage() {
       
       await planAPI.updatePlan(planId, updateData);
       
-      // Mostrar mensagem de sucesso e redirecionar
+      // Atualizar arquivos enviados e persistir o estado
+      const newUploadedFiles = [...uploadedFiles, ...files.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        uploadDate: new Date().toISOString()
+      }))];
+      
+      setUploadedFiles(newUploadedFiles);
+      setFiles([]);
+      
+      // Salvar o estado imediatamente após o upload bem-sucedido
+      saveStateToStorage(planId);
+      
       alert('Arquivos de exames enviados com sucesso!');
-      router.push(`/dashboard/plans/${planId}`);
     } catch (error) {
       console.error('Erro ao fazer upload dos arquivos:', error);
       setUploadError('Ocorreu um erro ao enviar os arquivos. Tente novamente.');
     } finally {
       setIsUploading(false);
     }
+  };
+  
+  const runAIAnalysis = async () => {
+    if (!planId) {
+      alert('ID do plano inválido');
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setAnalysisProgress(0);
+    
+    try {
+      // Preparar dados para análise
+      const patientAge = plan?.patientBirthdate 
+        ? calculateAge(new Date(plan.patientBirthdate))
+        : undefined;
+      
+      const analysisData = {
+        findings: findings,
+        recommendations: recommendations,
+        patientInfo: {
+          fullName: plan?.patientName || '',
+          age: patientAge,
+          gender: 'not_specified' // Implementar seleção de gênero no futuro
+        }
+      };
+      
+      // Executar análise de IA
+      const result = await generateExamAnalysis(analysisData, (progress: number) => {
+        setAnalysisProgress(progress);
+      });
+      
+      setAnalysisResult(result);
+      
+      // Atualizar o campo de achados com o resumo se estiver vazio
+      if (!findings || findings.trim().length === 0) {
+        setFindings(result.summary);
+      }
+      
+      // Atualizar o campo de recomendações se estiver vazio
+      if (!recommendations || recommendations.trim().length === 0) {
+        setRecommendations(result.recommendations.join('\n\n'));
+      }
+      
+    } catch (error) {
+      console.error('Erro na análise por IA:', error);
+      alert('Não foi possível completar a análise por IA. Tente novamente mais tarde.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+  
+  // Função para calcular idade
+  const calculateAge = (birthdate: Date) => {
+    const today = new Date();
+    let age = today.getFullYear() - birthdate.getFullYear();
+    const monthDiff = today.getMonth() - birthdate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+      age--;
+    }
+    
+    return age;
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,8 +326,21 @@ export default function ExamAnalysisEditPage() {
       return;
     }
     
+    // Quando estamos no modo 'files', executar o upload dos arquivos
     if (analysisType === 'files') {
-      await handleFileUpload();
+      if (files.length === 0 && !uploadedFiles.length) {
+        setUploadError('Selecione pelo menos um arquivo para upload');
+        return;
+      }
+      
+      // Se há arquivos para upload, enviar os arquivos
+      if (files.length > 0) {
+        await handleFileUpload();
+      } else {
+        // Se não há novos arquivos, mas já tem arquivos enviados, apenas notificar o usuário
+        alert('Análise de exames atualizada com sucesso!');
+        router.push(`/dashboard/plans/${planId}`);
+      }
       return;
     }
     
@@ -256,6 +420,13 @@ export default function ExamAnalysisEditPage() {
         </Link>
       </div>
       
+      {/* Animação de análise por IA */}
+      <AIAnalysisAnimation 
+        isAnalyzing={isAnalyzing}
+        progress={analysisProgress}
+        message="Processando análise de exames com IA..."
+      />
+
       <div className="bg-white shadow-sm rounded-lg p-6 mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Editar Análise de Exames</h1>
         
@@ -287,8 +458,60 @@ export default function ExamAnalysisEditPage() {
               <p className="text-xs text-center text-gray-500 mt-1">Faça upload de PDFs e imagens dos resultados de exames</p>
             </div>
           </div>
+
+          {/* Botão de ajuda IA */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-100"
+          >
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-full mr-3">
+                <Brain size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-blue-800 text-sm">Assistente de IA disponível</h4>
+                <p className="text-xs text-blue-600">Gerar análise automatizada com base nos dados fornecidos</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAIOption(!showAIOption)}
+                className="ml-auto bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs px-3 py-1 rounded-full transition-colors"
+              >
+                {showAIOption ? 'Ocultar' : 'Mostrar Opções'}
+              </button>
+            </div>
+
+            {showAIOption && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 bg-white p-3 rounded-md border border-blue-100"
+              >
+                <p className="text-sm text-gray-600 mb-3">
+                  Nosso assistente de IA pode analisar os dados fornecidos e gerar um resumo detalhado 
+                  com achados principais e recomendações baseadas nos dados disponíveis.
+                </p>
+                <button
+                  type="button"
+                  onClick={runAIAnalysis}
+                  disabled={isAnalyzing}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center w-full"
+                >
+                  {isAnalyzing ? 'Analisando...' : 'Gerar Análise com IA'}
+                </button>
+              </motion.div>
+            )}
+          </motion.div>
         </div>
         
+        {/* Resultado da análise por IA */}
+        {analysisResult && !isAnalyzing && (
+          <AIAnalysisResult result={analysisResult} />
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-6">
             {analysisType === 'text' ? (
@@ -376,25 +599,122 @@ export default function ExamAnalysisEditPage() {
                   )}
                 </div>
                 
-                {/* Lista de arquivos selecionados */}
+
+                
+                {/* Lista de arquivos selecionados com prévia */}
                 {files.length > 0 && (
                   <div className="mt-4">
                     <h3 className="font-medium text-sm mb-2">Arquivos selecionados ({files.length})</h3>
-                    <ul className="space-y-2">
-                      {files.map((file, index) => (
-                        <li key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200">
-                          <div className="flex items-center">
-                            <File size={16} className="text-gray-500 mr-2" />
-                            <span className="text-sm truncate max-w-xs">{file.name}</span>
-                            <span className="ml-2 text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    
+                    <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                      {/* Lista de arquivos */}
+                      <div className="w-full md:w-1/3">
+                        <ul className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-200 h-full max-h-[400px] overflow-y-auto">
+                          {files.map((file, index) => (
+                            <li 
+                              key={index} 
+                              className={`flex justify-between items-center p-2 rounded cursor-pointer transition-colors ${selectedPreviewFile === file ? 'bg-emerald-50 border border-emerald-200' : 'bg-white border border-gray-200 hover:bg-gray-100'}`}
+                              onClick={() => setSelectedPreviewFile(file)}
+                            >
+                              <div className="flex items-center flex-1 min-w-0">
+                                <FileIcon size={16} className="text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-sm truncate">{file.name}</span>
+                                <span className="ml-2 text-xs text-gray-500 flex-shrink-0">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFile(index);
+                                  if (selectedPreviewFile === file) {
+                                    setSelectedPreviewFile(null);
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-red-500 ml-2 flex-shrink-0"
+                              >
+                                <X size={16} />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {/* Prévia do arquivo */}
+                      <div className="w-full md:w-2/3 bg-gray-50 rounded-lg border border-gray-200 min-h-[400px] flex items-center justify-center relative">
+                        {selectedPreviewFile ? (
+                          <>
+                            <div className="absolute top-2 right-2 z-10">
+                              <button 
+                                onClick={() => setShowAdvancedPreview(true)}
+                                className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition-colors"
+                                title="Visualização avançada"
+                              >
+                                <Maximize2 size={18} className="text-gray-700" />
+                              </button>
+                            </div>
+                            {showAdvancedPreview ? (
+                              <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                                <div className="w-full max-w-5xl max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden">
+                                  <AdvancedFilePreview 
+                                    file={selectedPreviewFile} 
+                                    onClose={() => setShowAdvancedPreview(false)} 
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full h-full p-4 overflow-hidden">
+                                {selectedPreviewFile.type.startsWith('image/') ? (
+                                  <img 
+                                    src={URL.createObjectURL(selectedPreviewFile)} 
+                                    alt={selectedPreviewFile.name}
+                                    className="max-w-full max-h-[380px] object-contain mx-auto"
+                                  />
+                                ) : selectedPreviewFile.type === 'application/pdf' ? (
+                                  <div className="w-full h-full flex flex-col items-center">
+                                    <div className="bg-white p-3 rounded-md border border-gray-300 shadow-sm">
+                                      <FileIcon size={48} className="text-red-500 mx-auto" />
+                                      <p className="text-sm text-center mt-2 font-medium">{selectedPreviewFile.name}</p>
+                                    </div>
+                                    <p className="text-sm text-gray-500 mt-4">Clique no ícone de expansão no canto superior direito para visualizar o PDF.</p>
+                                    <button 
+                                      onClick={() => setShowAdvancedPreview(true)}
+                                      className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                                    >
+                                      <Maximize2 size={16} className="mr-2" />
+                                      Visualizar PDF
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="text-center p-6">
+                                    <FileIcon size={48} className="text-gray-400 mx-auto" />
+                                    <p className="text-gray-600 mt-4">Tipo de arquivo não suportado para prévia</p>
+                                    <p className="text-sm text-gray-500 mt-1">{selectedPreviewFile.name}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-center p-6">
+                            <FileIcon size={48} className="text-gray-300 mx-auto" />
+                            <p className="text-gray-500 mt-4">Selecione um arquivo para visualizar</p>
                           </div>
-                          <button 
-                            type="button" 
-                            onClick={() => removeFile(index)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <X size={16} />
-                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Lista de arquivos enviados com sucesso */}
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="font-medium text-sm mb-2 text-emerald-700">Arquivos enviados com sucesso ({uploadedFiles.length})</h3>
+                    <ul className="space-y-2 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+                      {uploadedFiles.map((file, index) => (
+                        <li key={index} className="flex items-center p-2 bg-white rounded border border-emerald-100">
+                          <FileIcon size={16} className="text-emerald-500 mr-2" />
+                          <span className="text-sm">{file.name}</span>
+                          <span className="ml-auto text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">✓ Enviado</span>
                         </li>
                       ))}
                     </ul>
