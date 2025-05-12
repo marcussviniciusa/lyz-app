@@ -12,6 +12,7 @@ import aiRoutes from './routes/aiRoutes';
 import promptRoutes from './routes/promptRoutes';
 import fileRoutes from './routes/fileRoutes';
 import materialRoutes from './routes/materialRoutes';
+import fileAnalysisRoutes from './routes/fileAnalysisRoutes';
 
 // Import configurations
 import { initBucket } from './config/minio';
@@ -69,6 +70,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/prompts', promptRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/materials', materialRoutes);
+app.use('/api/file-analysis', fileAnalysisRoutes);
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: any) => {

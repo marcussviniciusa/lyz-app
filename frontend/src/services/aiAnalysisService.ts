@@ -12,6 +12,7 @@ export interface ExamAnalysisData {
   findings?: string;
   recommendations?: string;
   fileNames?: string[];
+  fileContents?: {[filename: string]: string};
   patientInfo?: {
     fullName?: string;
     age?: number | string;
@@ -57,9 +58,21 @@ const generateExamAnalysis = async (
       prompt += `Recomendações prévias: ${data.recommendations}\n\n`;
     }
     
-    // Mencionar os arquivos de exames (se houverem)
-    if (data.fileNames && data.fileNames.length > 0) {
-      prompt += `Arquivos de exames anexados: ${data.fileNames.join(', ')}\n\n`;
+    // Incluir o conteúdo dos arquivos de exames (se disponível)
+    if (data.fileContents && Object.keys(data.fileContents).length > 0) {
+      prompt += `CONTEÚDO DOS EXAMES ANEXADOS:\n\n`;
+      
+      // Adicionar o conteúdo de cada arquivo
+      for (const [filename, content] of Object.entries(data.fileContents)) {
+        if (content && content.trim().length > 0) {
+          prompt += `=== EXAME: ${filename} ===\n${content}\n\n`;
+        }
+      }
+    }
+    // Caso só tenhamos os nomes dos arquivos, sem conteúdo
+    else if (data.fileNames && data.fileNames.length > 0) {
+      prompt += `Arquivos de exames anexados (sem conteúdo disponível): ${data.fileNames.join(', ')}\n\n`;
+      prompt += `IMPORTANTE: Os conteúdos dos arquivos não puderam ser extraídos. A análise será limitada às informações disponíveis.\n\n`;
     }
 
     prompt += `Por favor, forneça uma análise completa incluindo:

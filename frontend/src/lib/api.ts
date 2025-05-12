@@ -204,6 +204,41 @@ export const fileAPI = {
     });
   },
   
+  extractTextFromFiles: (files: File[]) => {
+    // Criar um FormData com os arquivos para análise
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    
+    console.log('FormData criado com', files.length, 'arquivo(s).');
+    return api.post('/api/file-analysis/extract-text', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  testFileUpload: (files: File[]) => {
+    // Verificação de diagnóstico para upload de arquivos
+    console.log('Testando upload de', files.length, 'arquivo(s):');
+    files.forEach((file, index) => {
+      console.log(`Arquivo ${index + 1}: ${file.name}, tipo: ${file.type}, tamanho: ${file.size} bytes`);
+    });
+    
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    
+    console.log('FormData criado para teste, enviando para o endpoint de teste...');
+    return api.post('/api/file-analysis/test-upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
   getFile: (fileId: string) => 
     api.get(`/api/files/${fileId}`),
   

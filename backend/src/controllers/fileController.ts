@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import { minioClient } from '../config/minio';
 import { ItemBucketMetadata } from 'minio';
+import { extractTextFromFiles } from '../utils/textExtractor';
 
 // File helper functions (inlined to resolve import issues)
 const getFileUrl = async (
@@ -238,29 +239,48 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
     // multer.array() sempre retorna um array de arquivos
     const files = req.files as Express.Multer.File[];
     
+    console.log(`Extraindo texto de ${files.length} arquivo(s) durante upload...`);
+    
+    // Extrair texto de todos os arquivos antes do upload
+    let extractedTexts = {};
+    try {
+      extractedTexts = await extractTextFromFiles(files);
+      console.log('Textos extraídos com sucesso:', Object.keys(extractedTexts));
+    } catch (extractionError) {
+      console.error('Erro ao extrair texto dos arquivos:', extractionError);
+      // Continuar com o upload mesmo se a extração falhar
+    }
+    
     // Upload de cada arquivo
     for (const file of files) {
       const objectName = `${req.user._id}/${category}/${path.basename(file.path)}`;
       const filePath = file.path;
       const fileType = file.mimetype;
+      
+      // Texto extraído deste arquivo (se disponível)
+      const extractedText = extractedTexts[file.originalname] || '';
 
-      // Upload do arquivo para o MinIO
+      // Upload do arquivo para o MinIO - NÃO incluir o texto extraído como metadado
+      // devido a restrições de caracteres em cabeçalhos HTTP
       await minioClient.fPutObject(bucketName, objectName, filePath, {
         'Content-Type': fileType,
         'X-Amz-Meta-User-Id': req.user._id.toString(),
         'X-Amz-Meta-Plan-Id': planId || '',
-        'X-Amz-Meta-Category': category
+        'X-Amz-Meta-Category': category,
+        'X-Amz-Meta-Has-Extracted-Text': extractedText ? 'true' : 'false' // Apenas indicar se há texto
       });
 
       // Gerar URL para acesso ao arquivo
       const fileUrl = await getFileUrl(bucketName, objectName);
-
+      
+      // Armazenar o texto extraído apenas no objeto de resposta, não nos metadados do MinIO
       uploadedFiles.push({
         fileId: objectName,
         fileUrl,
         fileName: path.basename(file.originalname),
         fileType,
-        uploadDate: new Date()
+        uploadDate: new Date(),
+        extractedText: extractedText // Incluir o texto completo na resposta
       });
 
       // Limpar arquivo temporário
@@ -268,11 +288,24 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
         fs.unlinkSync(filePath);
       }
     }
-
+    
+    // Retornar o sucesso dos uploads incluindo os textos extraídos
     res.status(200).json({
       status: 'success',
       data: {
-        files: uploadedFiles
+        files: uploadedFiles,
+        message: `${uploadedFiles.length} arquivo(s) enviado(s) com sucesso, conteúdo de texto extraído.`
+      }
+    });
+    
+    console.log(`Upload completo: ${uploadedFiles.length} arquivo(s) processado(s) com texto extraído`);
+    // Log para debug
+    uploadedFiles.forEach(file => {
+      if (file.extractedText) {
+        const textPreview = file.extractedText.substring(0, 100);
+        console.log(`Arquivo ${file.fileName}: Extraiu ${file.extractedText.length} caracteres. Amostra: ${textPreview}...`);
+      } else {
+        console.log(`Arquivo ${file.fileName}: Sem texto extraído.`);
       }
     });
   } catch (error) {

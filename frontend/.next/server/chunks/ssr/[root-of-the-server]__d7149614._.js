@@ -666,7 +666,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$openai$2f$in
 ;
 // Inicializar OpenAI client
 const openai = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$openai$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["OpenAI"]({
-    apiKey: ("TURBOPACK compile-time value", "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") || '',
+    apiKey: ("TURBOPACK compile-time value", "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") || '',
     dangerouslyAllowBrowser: true
 });
 /**
@@ -690,9 +690,18 @@ const openai = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$
         if (data.recommendations) {
             prompt += `Recomendações prévias: ${data.recommendations}\n\n`;
         }
-        // Mencionar os arquivos de exames (se houverem)
-        if (data.fileNames && data.fileNames.length > 0) {
-            prompt += `Arquivos de exames anexados: ${data.fileNames.join(', ')}\n\n`;
+        // Incluir o conteúdo dos arquivos de exames (se disponível)
+        if (data.fileContents && Object.keys(data.fileContents).length > 0) {
+            prompt += `CONTEÚDO DOS EXAMES ANEXADOS:\n\n`;
+            // Adicionar o conteúdo de cada arquivo
+            for (const [filename, content] of Object.entries(data.fileContents)){
+                if (content && content.trim().length > 0) {
+                    prompt += `=== EXAME: ${filename} ===\n${content}\n\n`;
+                }
+            }
+        } else if (data.fileNames && data.fileNames.length > 0) {
+            prompt += `Arquivos de exames anexados (sem conteúdo disponível): ${data.fileNames.join(', ')}\n\n`;
+            prompt += `IMPORTANTE: Os conteúdos dos arquivos não puderam ser extraídos. A análise será limitada às informações disponíveis.\n\n`;
         }
         prompt += `Por favor, forneça uma análise completa incluindo:
 1. Um breve resumo dos achados principais
@@ -773,7 +782,7 @@ Forneça a resposta em formato JSON com as chaves: "summary", "keyFindings", "re
     };
 };
 // Verificar se temos uma chave de API válida e não vazia
-const hasValidApiKey = ("TURBOPACK compile-time value", "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") && ("TURBOPACK compile-time value", "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").length > 10;
+const hasValidApiKey = ("TURBOPACK compile-time value", "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") && ("TURBOPACK compile-time value", "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").length > 10;
 const __TURBOPACK__default__export__ = ("TURBOPACK compile-time falsy", 0) ? ("TURBOPACK unreachable", undefined) : generateExamAnalysisMock;
 ;
 }}),
@@ -1370,12 +1379,13 @@ function ExamAnalysisEditPage() {
     const handleFileUpload = async ()=>{
         if (files.length === 0) {
             setUploadError('Selecione pelo menos um arquivo para upload');
-            return;
+            return null;
         }
         setIsUploading(true);
         setUploadProgress(0);
         setUploadError('');
         try {
+            console.log('Iniciando upload de', files.length, 'arquivo(s)...');
             // Criar FormData com os arquivos
             const formData = new FormData();
             files.forEach((file)=>{
@@ -1394,10 +1404,23 @@ function ExamAnalysisEditPage() {
                 });
             }, 200);
             // Enviar arquivos
-            await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["fileAPI"].uploadFiles(formData);
+            console.log('Enviando arquivos para o servidor...');
+            const uploadResponse = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["fileAPI"].uploadFiles(formData);
+            // Salvar a amostra de texto do PDF para recuperação posterior se existir
+            if (uploadResponse.data?.data?.files?.[0]?.extractedText) {
+                // @ts-ignore - propriedade customizada para armazenar temporariamente o texto extraído
+                window.__extractedPdfText = uploadResponse.data.data.files[0].extractedText;
+            }
+            console.log('Resposta do upload:', uploadResponse.data);
             // Finalizar progresso
             clearInterval(interval);
             setUploadProgress(100);
+            // Extrair informações dos arquivos enviados, incluindo texto extraído
+            const uploadedFileData = uploadResponse.data?.data?.files || [];
+            console.log('Dados dos arquivos enviados:', uploadedFileData);
+            if (uploadedFileData.length === 0 && uploadResponse.data) {
+                console.log('Analisando resposta completa do servidor:', uploadResponse.data);
+            }
             // Atualizar exame
             const updateData = {
                 examAnalysis: {
@@ -1408,24 +1431,61 @@ function ExamAnalysisEditPage() {
                 changeDescription: 'Upload de arquivos de exames'
             };
             await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["planAPI"].updatePlan(planId, updateData);
-            // Atualizar arquivos enviados e persistir o estado
-            const newUploadedFiles = [
-                ...uploadedFiles,
-                ...files.map((file)=>({
+            // Log detalhado da resposta para debugging
+            console.log('Resposta completa do servidor:', JSON.stringify(uploadResponse.data));
+            // Preparar os arquivos enviados com texto extraído (se disponível)
+            let newUploadedFiles = [];
+            if (uploadedFileData && uploadedFileData.length > 0) {
+                newUploadedFiles = uploadedFileData.map((file)=>({
+                        fileName: file.fileName,
+                        name: file.fileName,
+                        fileUrl: file.fileUrl,
+                        fileId: file.fileId,
+                        fileType: file.fileType,
+                        size: file.size || 0,
+                        uploadDate: file.uploadDate || new Date().toISOString(),
+                        extractedText: file.extractedText || ''
+                    }));
+            } else if (uploadResponse.data && uploadResponse.data.data) {
+                // Tentativa alternativa de obter os arquivos
+                console.log('Tentando processar diretamente a resposta:', uploadResponse.data.data);
+            }
+            // Se mesmo assim não temos arquivos, criar objetos simplificados a partir dos arquivos originais
+            if (newUploadedFiles.length === 0 && files.length > 0) {
+                console.warn('Resposta não contém arquivos, usando informações dos arquivos originais');
+                newUploadedFiles = files.map((file)=>({
+                        fileName: file.name,
                         name: file.name,
+                        fileType: file.type,
                         size: file.size,
-                        type: file.type,
                         uploadDate: new Date().toISOString()
-                    }))
-            ];
-            setUploadedFiles(newUploadedFiles);
+                    }));
+            }
+            // Atualizar estado com os novos arquivos
+            setUploadedFiles([
+                ...uploadedFiles,
+                ...newUploadedFiles
+            ]);
             setFiles([]);
             // Salvar o estado imediatamente após o upload bem-sucedido
             saveStateToStorage(planId);
-            alert('Arquivos de exames enviados com sucesso!');
+            console.log('Upload bem-sucedido, arquivos processados:', newUploadedFiles);
+            if (!analysisResult && !isAnalyzing) {
+                // Se não há análise em andamento ou concluída, não exibir alerta
+                alert('Arquivos de exames enviados com sucesso!');
+            }
+            // Retornar os dados dos arquivos enviados para uso na análise
+            return {
+                success: true,
+                files: newUploadedFiles
+            };
         } catch (error) {
             console.error('Erro ao fazer upload dos arquivos:', error);
             setUploadError('Ocorreu um erro ao enviar os arquivos. Tente novamente.');
+            return {
+                success: false,
+                error: error
+            };
         } finally{
             setIsUploading(false);
         }
@@ -1439,19 +1499,113 @@ function ExamAnalysisEditPage() {
         setAnalysisProgress(0);
         try {
             // Preparar dados para análise
-            const patientAge = plan?.patientBirthdate ? calculateAge(new Date(plan.patientBirthdate)) : undefined;
-            const analysisData = {
+            const patientAge = plan?.patientData?.birthDate ? calculateAge(new Date(plan.patientData.birthDate)) : undefined;
+            let extractedTexts = {};
+            let analysisData = {
                 findings: findings,
                 recommendations: recommendations,
                 patientInfo: {
-                    fullName: plan?.patientName || '',
+                    fullName: plan?.patientData?.fullName || '',
                     age: patientAge,
                     gender: 'not_specified' // Implementar seleção de gênero no futuro
                 }
             };
+            console.log('======== INICIANDO ANÁLISE DE EXAMES ========');
+            // Primeiramente, verificar se temos arquivos já enviados com texto extraído
+            if (uploadedFiles.length > 0) {
+                console.log(`Usando ${uploadedFiles.length} arquivo(s) já carregado(s) para análise`);
+                setAnalysisProgress(15);
+                // Verificar se os arquivos carregados têm texto extraído
+                let hasValidContent = false;
+                // Construir o objeto extractedTexts a partir dos arquivos carregados
+                uploadedFiles.forEach((file)=>{
+                    if (file.extractedText && typeof file.extractedText === 'string') {
+                        extractedTexts[file.name || file.fileName] = file.extractedText;
+                        // Verificar se há conteúdo significativo
+                        if (file.extractedText.length > 50) {
+                            hasValidContent = true;
+                            console.log(`Arquivo ${file.name || file.fileName} contém texto válido (${file.extractedText.length} caracteres)`);
+                            console.log(`Amostra: ${file.extractedText.substring(0, 100)}...`);
+                        } else {
+                            console.log(`Arquivo ${file.name || file.fileName} contém texto muito curto ou vazio`);
+                        }
+                    } else {
+                        console.log(`Arquivo ${file.name || file.fileName} não tem texto extraído`);
+                    }
+                });
+                if (Object.keys(extractedTexts).length > 0) {
+                    console.log(`Textos extraídos de ${Object.keys(extractedTexts).length} arquivo(s)`);
+                    analysisData.fileContents = extractedTexts;
+                    analysisData.fileNames = Object.keys(extractedTexts);
+                    if (hasValidContent) {
+                        console.log('Conteúdo válido encontrado, prosseguindo com a análise...');
+                    } else {
+                        console.warn('ALERTA: Os arquivos carregados parecem não conter texto significativo!');
+                    }
+                } else {
+                    console.warn('Nenhum texto extraído encontrado nos arquivos carregados');
+                    // Usar pelo menos os nomes dos arquivos para a análise
+                    analysisData.fileNames = uploadedFiles.map((f)=>f.name || f.fileName);
+                }
+                setAnalysisProgress(30);
+            } else if (files.length > 0) {
+                // Se há arquivos selecionados mas ainda não enviados, precisamos enviá-los primeiro
+                console.log('Arquivos selecionados mas ainda não enviados. Realizando upload e extração de texto...');
+                try {
+                    // Fazer upload dos arquivos com extração de texto
+                    setAnalysisProgress(10);
+                    const result = await handleFileUpload();
+                    if (result && result.files) {
+                        console.log(`${result.files.length} arquivo(s) enviado(s) com sucesso`);
+                        // Usar os arquivos recém-enviados
+                        result.files.forEach((file)=>{
+                            if (file.extractedText && typeof file.extractedText === 'string') {
+                                extractedTexts[file.fileName] = file.extractedText;
+                                console.log(`Extraído texto de ${file.fileName}: ${file.extractedText.substring(0, 100)}...`);
+                            }
+                        });
+                        // Se não conseguimos extrair texto dos arquivos enviados, tentar outras abordagens
+                        if (Object.keys(extractedTexts).length === 0) {
+                            console.log('Tentando recuperar texto de outras fontes');
+                            // Tentar recuperar o texto que salvamos anteriormente
+                            if ("TURBOPACK compile-time falsy", 0) {
+                                "TURBOPACK unreachable";
+                            }
+                        }
+                        // Se ainda não temos textos, fazer uma última tentativa para os PDFs
+                        if (Object.keys(extractedTexts).length === 0 && files.some((f)=>f.type === 'application/pdf')) {
+                            console.log('Tentando medida de fallback para textos de PDF');
+                            // Para fins de teste, inserir um texto de amostra se não temos nenhum
+                            if ("TURBOPACK compile-time falsy", 0) {
+                                "TURBOPACK unreachable";
+                            }
+                        }
+                        if (Object.keys(extractedTexts).length > 0) {
+                            analysisData.fileContents = extractedTexts;
+                            analysisData.fileNames = Object.keys(extractedTexts);
+                            console.log('Texto extraído com sucesso durante upload');
+                        } else {
+                            console.warn('Nenhum texto extraído dos arquivos enviados');
+                            analysisData.fileNames = result.files.map((f)=>f.fileName || f.name);
+                        }
+                    } else {
+                        console.error('Erro no upload de arquivos, usando apenas os nomes para análise');
+                        analysisData.fileNames = files.map((f)=>f.name);
+                    }
+                } catch (error) {
+                    console.error('Erro ao enviar arquivos:', error);
+                    analysisData.fileNames = files.map((f)=>f.name);
+                }
+                setAnalysisProgress(30);
+            } else {
+                console.log('Nenhum arquivo disponível para análise, prosseguindo apenas com dados textuais');
+            }
+            console.log('Dados preparados para análise:', analysisData);
+            console.log('======== ENVIANDO PARA ANÁLISE DE IA ========');
             // Executar análise de IA
             const result = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$aiAnalysisService$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["generateExamAnalysis"])(analysisData, (progress)=>{
-                setAnalysisProgress(progress);
+                // Ajustar o progresso para começar de onde paramos na extração de texto
+                setAnalysisProgress(30 + progress * 0.7); // 30% para extração, 70% para análise
             });
             setAnalysisResult(result);
             // Atualizar o campo de achados com o resumo se estiver vazio
@@ -1459,9 +1613,14 @@ function ExamAnalysisEditPage() {
                 setFindings(result.summary);
             }
             // Atualizar o campo de recomendações se estiver vazio
-            if (!recommendations || recommendations.trim().length === 0) {
+            if ((!recommendations || recommendations.trim().length === 0) && Array.isArray(result.recommendations)) {
                 setRecommendations(result.recommendations.join('\n\n'));
+            } else if ((!recommendations || recommendations.trim().length === 0) && result.recommendations && typeof result.recommendations === 'string') {
+                // Se recommendations não for um array, mas for uma string
+                setRecommendations(result.recommendations);
             }
+            // Salvar o estado no localStorage
+            saveStateToStorage(planId);
         } catch (error) {
             console.error('Erro na análise por IA:', error);
             alert('Não foi possível completar a análise por IA. Tente novamente mais tarde.');
@@ -1533,7 +1692,7 @@ function ExamAnalysisEditPage() {
                         className: "inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-500 border-r-transparent"
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 377,
+                        lineNumber: 560,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1541,18 +1700,18 @@ function ExamAnalysisEditPage() {
                         children: "Carregando dados do plano..."
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 378,
+                        lineNumber: 561,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 376,
+                lineNumber: 559,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-            lineNumber: 375,
+            lineNumber: 558,
             columnNumber: 7
         }, this);
     }
@@ -1567,7 +1726,7 @@ function ExamAnalysisEditPage() {
                         children: error
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 388,
+                        lineNumber: 571,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1576,18 +1735,18 @@ function ExamAnalysisEditPage() {
                         children: "Voltar para detalhes do plano"
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 391,
+                        lineNumber: 574,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 387,
+                lineNumber: 570,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-            lineNumber: 386,
+            lineNumber: 569,
             columnNumber: 7
         }, this);
     }
@@ -1602,7 +1761,7 @@ function ExamAnalysisEditPage() {
                         children: "Plano não encontrado"
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 403,
+                        lineNumber: 586,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1611,18 +1770,18 @@ function ExamAnalysisEditPage() {
                         children: "Voltar para lista de planos"
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 406,
+                        lineNumber: 589,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 402,
+                lineNumber: 585,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-            lineNumber: 401,
+            lineNumber: 584,
             columnNumber: 7
         }, this);
     }
@@ -1640,19 +1799,19 @@ function ExamAnalysisEditPage() {
                             className: "mr-1"
                         }, void 0, false, {
                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                            lineNumber: 418,
+                            lineNumber: 601,
                             columnNumber: 11
                         }, this),
                         "Voltar"
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                    lineNumber: 417,
+                    lineNumber: 600,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 416,
+                lineNumber: 599,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$AIAnalysisAnimation$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1661,7 +1820,7 @@ function ExamAnalysisEditPage() {
                 message: "Processando análise de exames com IA..."
             }, void 0, false, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 424,
+                lineNumber: 607,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1672,7 +1831,7 @@ function ExamAnalysisEditPage() {
                         children: "Editar Análise de Exames"
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 431,
+                        lineNumber: 614,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1683,7 +1842,7 @@ function ExamAnalysisEditPage() {
                                 children: "Paciente"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                lineNumber: 435,
+                                lineNumber: 618,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1691,13 +1850,13 @@ function ExamAnalysisEditPage() {
                                 children: plan.patientData?.fullName || 'Não informado'
                             }, void 0, false, {
                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                lineNumber: 436,
+                                lineNumber: 619,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 434,
+                        lineNumber: 617,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1708,7 +1867,7 @@ function ExamAnalysisEditPage() {
                                 children: "Escolha o tipo de análise:"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                lineNumber: 441,
+                                lineNumber: 624,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1723,7 +1882,7 @@ function ExamAnalysisEditPage() {
                                                 className: `mb-2 ${analysisType === 'text' ? 'text-emerald-500' : 'text-gray-400'}`
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 447,
+                                                lineNumber: 630,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -1731,7 +1890,7 @@ function ExamAnalysisEditPage() {
                                                 children: "Resumo em Texto"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 448,
+                                                lineNumber: 631,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1739,13 +1898,13 @@ function ExamAnalysisEditPage() {
                                                 children: "Descreva os achados e recomendações em formato de texto"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 449,
+                                                lineNumber: 632,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                        lineNumber: 443,
+                                        lineNumber: 626,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1757,7 +1916,7 @@ function ExamAnalysisEditPage() {
                                                 className: `mb-2 ${analysisType === 'files' ? 'text-emerald-500' : 'text-gray-400'}`
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 456,
+                                                lineNumber: 639,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -1765,7 +1924,7 @@ function ExamAnalysisEditPage() {
                                                 children: "Arquivos de Exames"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 457,
+                                                lineNumber: 640,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1773,19 +1932,19 @@ function ExamAnalysisEditPage() {
                                                 children: "Faça upload de PDFs e imagens dos resultados de exames"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 458,
+                                                lineNumber: 641,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                        lineNumber: 452,
+                                        lineNumber: 635,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                lineNumber: 442,
+                                lineNumber: 625,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$render$2f$components$2f$motion$2f$proxy$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["motion"].div, {
@@ -1812,12 +1971,12 @@ function ExamAnalysisEditPage() {
                                                     className: "text-blue-600"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 471,
+                                                    lineNumber: 654,
                                                     columnNumber: 17
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 470,
+                                                lineNumber: 653,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1827,7 +1986,7 @@ function ExamAnalysisEditPage() {
                                                         children: "Assistente de IA disponível"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                        lineNumber: 474,
+                                                        lineNumber: 657,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1835,13 +1994,13 @@ function ExamAnalysisEditPage() {
                                                         children: "Gerar análise automatizada com base nos dados fornecidos"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                        lineNumber: 475,
+                                                        lineNumber: 658,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 473,
+                                                lineNumber: 656,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1851,13 +2010,13 @@ function ExamAnalysisEditPage() {
                                                 children: showAIOption ? 'Ocultar' : 'Mostrar Opções'
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 477,
+                                                lineNumber: 660,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                        lineNumber: 469,
+                                        lineNumber: 652,
                                         columnNumber: 13
                                     }, this),
                                     showAIOption && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$render$2f$components$2f$motion$2f$proxy$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["motion"].div, {
@@ -1880,7 +2039,7 @@ function ExamAnalysisEditPage() {
                                                 children: "Nosso assistente de IA pode analisar os dados fornecidos e gerar um resumo detalhado com achados principais e recomendações baseadas nos dados disponíveis."
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 493,
+                                                lineNumber: 676,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1891,32 +2050,32 @@ function ExamAnalysisEditPage() {
                                                 children: isAnalyzing ? 'Analisando...' : 'Gerar Análise com IA'
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                lineNumber: 497,
+                                                lineNumber: 680,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                        lineNumber: 487,
+                                        lineNumber: 670,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                lineNumber: 463,
+                                lineNumber: 646,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 440,
+                        lineNumber: 623,
                         columnNumber: 9
                     }, this),
                     analysisResult && !isAnalyzing && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$AIAnalysisResult$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
                         result: analysisResult
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 512,
+                        lineNumber: 695,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -1934,7 +2093,7 @@ function ExamAnalysisEditPage() {
                                                     children: "Achados"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 521,
+                                                    lineNumber: 704,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
@@ -1947,7 +2106,7 @@ function ExamAnalysisEditPage() {
                                                     onChange: (e)=>setFindings(e.target.value)
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 524,
+                                                    lineNumber: 707,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1955,13 +2114,13 @@ function ExamAnalysisEditPage() {
                                                     children: "Registre os principais achados, anomalias ou pontos relevantes identificados nos exames."
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 533,
+                                                    lineNumber: 716,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 520,
+                                            lineNumber: 703,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1972,7 +2131,7 @@ function ExamAnalysisEditPage() {
                                                     children: "Recomendações"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 540,
+                                                    lineNumber: 723,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
@@ -1985,7 +2144,7 @@ function ExamAnalysisEditPage() {
                                                     onChange: (e)=>setRecommendations(e.target.value)
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 543,
+                                                    lineNumber: 726,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1993,13 +2152,13 @@ function ExamAnalysisEditPage() {
                                                     children: "Inclua recomendações específicas para o paciente com base nos resultados dos exames."
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 552,
+                                                    lineNumber: 735,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 539,
+                                            lineNumber: 722,
                                             columnNumber: 17
                                         }, this)
                                     ]
@@ -2017,7 +2176,7 @@ function ExamAnalysisEditPage() {
                                                     accept: ".pdf,.jpg,.jpeg,.png"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 561,
+                                                    lineNumber: 744,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2028,7 +2187,7 @@ function ExamAnalysisEditPage() {
                                                             className: "mx-auto text-gray-400"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 571,
+                                                            lineNumber: 754,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -2036,7 +2195,7 @@ function ExamAnalysisEditPage() {
                                                             children: "Arraste e solte arquivos ou"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 572,
+                                                            lineNumber: 755,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2046,7 +2205,7 @@ function ExamAnalysisEditPage() {
                                                             children: "Selecionar arquivos"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 573,
+                                                            lineNumber: 756,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2054,13 +2213,13 @@ function ExamAnalysisEditPage() {
                                                             children: "PDF, JPG ou PNG (máx. 10MB por arquivo)"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 580,
+                                                            lineNumber: 763,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 570,
+                                                    lineNumber: 753,
                                                     columnNumber: 19
                                                 }, this),
                                                 uploadError && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2068,7 +2227,7 @@ function ExamAnalysisEditPage() {
                                                     children: uploadError
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 584,
+                                                    lineNumber: 767,
                                                     columnNumber: 21
                                                 }, this),
                                                 isUploading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2083,12 +2242,12 @@ function ExamAnalysisEditPage() {
                                                                 }
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                lineNumber: 592,
+                                                                lineNumber: 775,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 591,
+                                                            lineNumber: 774,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2099,19 +2258,19 @@ function ExamAnalysisEditPage() {
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 597,
+                                                            lineNumber: 780,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 590,
+                                                    lineNumber: 773,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 560,
+                                            lineNumber: 743,
                                             columnNumber: 17
                                         }, this),
                                         files.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2126,7 +2285,7 @@ function ExamAnalysisEditPage() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 607,
+                                                    lineNumber: 790,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2148,7 +2307,7 @@ function ExamAnalysisEditPage() {
                                                                                         className: "text-gray-500 mr-2 flex-shrink-0"
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                        lineNumber: 620,
+                                                                                        lineNumber: 803,
                                                                                         columnNumber: 33
                                                                                     }, this),
                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2156,7 +2315,7 @@ function ExamAnalysisEditPage() {
                                                                                         children: file.name
                                                                                     }, void 0, false, {
                                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                        lineNumber: 621,
+                                                                                        lineNumber: 804,
                                                                                         columnNumber: 33
                                                                                     }, this),
                                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2168,13 +2327,13 @@ function ExamAnalysisEditPage() {
                                                                                         ]
                                                                                     }, void 0, true, {
                                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                        lineNumber: 622,
+                                                                                        lineNumber: 805,
                                                                                         columnNumber: 33
                                                                                     }, this)
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                lineNumber: 619,
+                                                                                lineNumber: 802,
                                                                                 columnNumber: 31
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2191,28 +2350,28 @@ function ExamAnalysisEditPage() {
                                                                                     size: 16
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 635,
+                                                                                    lineNumber: 818,
                                                                                     columnNumber: 33
                                                                                 }, this)
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                lineNumber: 624,
+                                                                                lineNumber: 807,
                                                                                 columnNumber: 31
                                                                             }, this)
                                                                         ]
                                                                     }, index, true, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 614,
+                                                                        lineNumber: 797,
                                                                         columnNumber: 29
                                                                     }, this))
                                                             }, void 0, false, {
                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                lineNumber: 612,
+                                                                lineNumber: 795,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 611,
+                                                            lineNumber: 794,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2230,17 +2389,17 @@ function ExamAnalysisEditPage() {
                                                                                 className: "text-gray-700"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                lineNumber: 652,
+                                                                                lineNumber: 835,
                                                                                 columnNumber: 33
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                            lineNumber: 647,
+                                                                            lineNumber: 830,
                                                                             columnNumber: 31
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 646,
+                                                                        lineNumber: 829,
                                                                         columnNumber: 29
                                                                     }, this),
                                                                     showAdvancedPreview ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2252,17 +2411,17 @@ function ExamAnalysisEditPage() {
                                                                                 onClose: ()=>setShowAdvancedPreview(false)
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                lineNumber: 658,
+                                                                                lineNumber: 841,
                                                                                 columnNumber: 35
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                            lineNumber: 657,
+                                                                            lineNumber: 840,
                                                                             columnNumber: 33
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 656,
+                                                                        lineNumber: 839,
                                                                         columnNumber: 31
                                                                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                         className: "w-full h-full p-4 overflow-hidden",
@@ -2272,7 +2431,7 @@ function ExamAnalysisEditPage() {
                                                                             className: "max-w-full max-h-[380px] object-contain mx-auto"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                            lineNumber: 667,
+                                                                            lineNumber: 850,
                                                                             columnNumber: 35
                                                                         }, this) : selectedPreviewFile.type === 'application/pdf' ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                             className: "w-full h-full flex flex-col items-center",
@@ -2285,7 +2444,7 @@ function ExamAnalysisEditPage() {
                                                                                             className: "text-red-500 mx-auto"
                                                                                         }, void 0, false, {
                                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                            lineNumber: 675,
+                                                                                            lineNumber: 858,
                                                                                             columnNumber: 39
                                                                                         }, this),
                                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2293,13 +2452,13 @@ function ExamAnalysisEditPage() {
                                                                                             children: selectedPreviewFile.name
                                                                                         }, void 0, false, {
                                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                            lineNumber: 676,
+                                                                                            lineNumber: 859,
                                                                                             columnNumber: 39
                                                                                         }, this)
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 674,
+                                                                                    lineNumber: 857,
                                                                                     columnNumber: 37
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2307,7 +2466,7 @@ function ExamAnalysisEditPage() {
                                                                                     children: "Clique no ícone de expansão no canto superior direito para visualizar o PDF."
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 678,
+                                                                                    lineNumber: 861,
                                                                                     columnNumber: 37
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2319,20 +2478,20 @@ function ExamAnalysisEditPage() {
                                                                                             className: "mr-2"
                                                                                         }, void 0, false, {
                                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                            lineNumber: 683,
+                                                                                            lineNumber: 866,
                                                                                             columnNumber: 39
                                                                                         }, this),
                                                                                         "Visualizar PDF"
                                                                                     ]
                                                                                 }, void 0, true, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 679,
+                                                                                    lineNumber: 862,
                                                                                     columnNumber: 37
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                            lineNumber: 673,
+                                                                            lineNumber: 856,
                                                                             columnNumber: 35
                                                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                             className: "text-center p-6",
@@ -2342,7 +2501,7 @@ function ExamAnalysisEditPage() {
                                                                                     className: "text-gray-400 mx-auto"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 689,
+                                                                                    lineNumber: 872,
                                                                                     columnNumber: 37
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2350,7 +2509,7 @@ function ExamAnalysisEditPage() {
                                                                                     children: "Tipo de arquivo não suportado para prévia"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 690,
+                                                                                    lineNumber: 873,
                                                                                     columnNumber: 37
                                                                                 }, this),
                                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2358,18 +2517,18 @@ function ExamAnalysisEditPage() {
                                                                                     children: selectedPreviewFile.name
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                                    lineNumber: 691,
+                                                                                    lineNumber: 874,
                                                                                     columnNumber: 37
                                                                                 }, this)
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                            lineNumber: 688,
+                                                                            lineNumber: 871,
                                                                             columnNumber: 35
                                                                         }, this)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 665,
+                                                                        lineNumber: 848,
                                                                         columnNumber: 31
                                                                     }, this)
                                                                 ]
@@ -2381,7 +2540,7 @@ function ExamAnalysisEditPage() {
                                                                         className: "text-gray-300 mx-auto"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 699,
+                                                                        lineNumber: 882,
                                                                         columnNumber: 29
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2389,30 +2548,30 @@ function ExamAnalysisEditPage() {
                                                                         children: "Selecione um arquivo para visualizar"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                        lineNumber: 700,
+                                                                        lineNumber: 883,
                                                                         columnNumber: 29
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                lineNumber: 698,
+                                                                lineNumber: 881,
                                                                 columnNumber: 27
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 643,
+                                                            lineNumber: 826,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 609,
+                                                    lineNumber: 792,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 606,
+                                            lineNumber: 789,
                                             columnNumber: 19
                                         }, this),
                                         uploadedFiles.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2427,7 +2586,7 @@ function ExamAnalysisEditPage() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 711,
+                                                    lineNumber: 894,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
@@ -2440,7 +2599,7 @@ function ExamAnalysisEditPage() {
                                                                     className: "text-emerald-500 mr-2"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                    lineNumber: 715,
+                                                                    lineNumber: 898,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2448,7 +2607,7 @@ function ExamAnalysisEditPage() {
                                                                     children: file.name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                    lineNumber: 716,
+                                                                    lineNumber: 899,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2456,24 +2615,24 @@ function ExamAnalysisEditPage() {
                                                                     children: "✓ Enviado"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                                    lineNumber: 717,
+                                                                    lineNumber: 900,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, index, true, {
                                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                            lineNumber: 714,
+                                                            lineNumber: 897,
                                                             columnNumber: 25
                                                         }, this))
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 712,
+                                                    lineNumber: 895,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 710,
+                                            lineNumber: 893,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2484,7 +2643,7 @@ function ExamAnalysisEditPage() {
                                                     children: "Recomendações (opcional)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 726,
+                                                    lineNumber: 909,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
@@ -2497,7 +2656,7 @@ function ExamAnalysisEditPage() {
                                                     onChange: (e)=>setRecommendations(e.target.value)
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 729,
+                                                    lineNumber: 912,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2505,13 +2664,13 @@ function ExamAnalysisEditPage() {
                                                     children: "Opcionalmente, adicione algumas recomendações junto com os arquivos."
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                    lineNumber: 738,
+                                                    lineNumber: 921,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 725,
+                                            lineNumber: 908,
                                             columnNumber: 17
                                         }, this)
                                     ]
@@ -2525,7 +2684,7 @@ function ExamAnalysisEditPage() {
                                             children: "Cancelar"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 747,
+                                            lineNumber: 930,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2538,7 +2697,7 @@ function ExamAnalysisEditPage() {
                                                         className: "h-4 w-4 mr-2 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                        lineNumber: 760,
+                                                        lineNumber: 943,
                                                         columnNumber: 21
                                                     }, this),
                                                     isUploading ? 'Enviando arquivos...' : 'Salvando...'
@@ -2550,7 +2709,7 @@ function ExamAnalysisEditPage() {
                                                         className: "mr-2"
                                                     }, void 0, false, {
                                                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                                        lineNumber: 765,
+                                                        lineNumber: 948,
                                                         columnNumber: 21
                                                     }, this),
                                                     analysisType === 'files' ? 'Enviar Arquivos' : 'Salvar Análise'
@@ -2558,36 +2717,36 @@ function ExamAnalysisEditPage() {
                                             }, void 0, true)
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                            lineNumber: 753,
+                                            lineNumber: 936,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                                    lineNumber: 746,
+                                    lineNumber: 929,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                            lineNumber: 516,
+                            lineNumber: 699,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                        lineNumber: 515,
+                        lineNumber: 698,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-                lineNumber: 430,
+                lineNumber: 613,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/app/dashboard/plans/[id]/exam-analysis/page.tsx",
-        lineNumber: 415,
+        lineNumber: 598,
         columnNumber: 5
     }, this);
 }
